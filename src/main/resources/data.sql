@@ -1,0 +1,134 @@
+DROP DATABASE IF EXISTS vsp_db;
+CREATE DATABASE IF NOT EXISTS vsp_db;
+USE vsp_db;
+
+CREATE TABLE users (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	username VARCHAR(50) UNIQUE NOT NULL,
+	email VARCHAR(255) UNIQUE NOT NULL,
+	password_hash VARCHAR(255) NOT NULL,
+	visibility ENUM('PUBLIC', 'PRIVATE') NOT NULL DEFAULT 'PUBLIC',
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE videos (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	user_id BIGINT NOT NULL,
+	title VARCHAR(100) NOT NULL,
+	description TEXT,
+	visibility ENUM('PUBLIC', 'PRIVATE') NOT NULL DEFAULT 'PUBLIC',
+	thumbnail_url VARCHAR(255),
+	video_url VARCHAR(255) NOT NULL,
+	duration INT UNSIGNED,
+	view_count INT NOT NULL DEFAULT 0,
+	comments_disabled BOOLEAN NOT NULL DEFAULT FALSE,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+	CONSTRAINT fk_video_user
+	FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE posts (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	user_id BIGINT NOT NULL,
+	content VARCHAR(1000),
+	visibility ENUM('PUBLIC', 'PRIVATE') NOT NULL DEFAULT 'PUBLIC',
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+	is_edited BOOLEAN NOT NULL DEFAULT FALSE,
+
+	CONSTRAINT fk_post_user
+	FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TRIGGER posts_set_edited
+BEFORE UPDATE ON posts
+FOR EACH ROW
+	SET NEW.is_edited = NEW.is_edited OR NOT (NEW.content <=> OLD.content);
+
+CREATE TABLE post_images (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	post_id BIGINT NOT NULL,
+	user_id BIGINT NOT NULL,
+	image_url VARCHAR(255) NOT NULL,
+	sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+	CONSTRAINT fk_image_post
+	FOREIGN KEY (post_id) REFERENCES posts(id)
+		ON DELETE CASCADE,
+	CONSTRAINT fk_image_user
+	FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE comments (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	user_id BIGINT NOT NULL,
+	video_id BIGINT,
+	post_id BIGINT,
+	parent_id BIGINT,
+	content VARCHAR(500) NOT NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+	is_edited BOOLEAN NOT NULL DEFAULT FALSE,
+
+	CHECK ((video_id IS NOT NULL) <> (post_id IS NOT NULL)),
+	CONSTRAINT fk_comment_user
+	FOREIGN KEY (user_id) REFERENCES users(id),
+	CONSTRAINT fk_comment_video
+	FOREIGN KEY (video_id) REFERENCES videos(id)
+		ON DELETE CASCADE,
+	CONSTRAINT fk_comment_post
+	FOREIGN KEY (post_id) REFERENCES posts(id)
+		ON DELETE CASCADE,
+	CONSTRAINT fk_comment_parent
+	FOREIGN KEY (parent_id) REFERENCES comments(id)
+		ON DELETE CASCADE
+);
+
+CREATE TRIGGER comments_set_edited
+BEFORE UPDATE ON comments
+FOR EACH ROW
+	SET NEW.is_edited = NEW.is_edited OR NOT (NEW.content <=> OLD.content);
+
+CREATE TABLE likes (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	user_id BIGINT NOT NULL,
+	target_type ENUM('VIDEO', 'POST', 'COMMENT') NOT NULL,
+	target_id BIGINT NOT NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+	UNIQUE KEY uk_like (user_id, target_type, target_id),
+	INDEX idx_likes_target (target_type, target_id),
+	CONSTRAINT fk_like_user
+	FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Delete (not deactivate) does not trigger likes deactivation
+
+CREATE TABLE subscriptions (
+	id BIGINT PRIMARY KEY AUTO_INCREMENT,
+	subscriber_id BIGINT NOT NULL,
+	channel_id BIGINT NOT NULL,
+	status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	decided_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+	CHECK (subscriber_id <> channel_id),
+	UNIQUE KEY uk_subscription (subscriber_id, channel_id),
+	CONSTRAINT fk_sub_subscriber
+	FOREIGN KEY (subscriber_id) REFERENCES users(id),
+	CONSTRAINT fk_sub_channel
+	FOREIGN KEY (channel_id) REFERENCES users(id),
+	INDEX idx_sub_incoming (channel_id, status),
+	INDEX idx_sub_mine (subscriber_id, status)
+);
