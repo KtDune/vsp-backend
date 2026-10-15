@@ -50,6 +50,9 @@ public class UserService {
 		if (user.getReEnterPassword() == null || !user.getReEnterPassword().equals(password)) {
 			return Map.of("success", false, "message", "Passwords do not match");
 		}
+		if (user.getProfileUrl() != null && user.getProfileUrl().length() > 255) {
+			return Map.of("success", false, "message", "Profile URL must be 255 characters or fewer");
+		}
 		if (userRepository.existsByEmailIgnoreCase(email)) {
 			return Map.of("success", false, "message", "Email already in use");
 		}
@@ -98,6 +101,13 @@ public class UserService {
 
 		if (changes.getVisibility() != null) {
 			user.setVisibility(changes.getVisibility());
+		}
+
+		if (changes.getProfileUrl() != null) {
+			if (changes.getProfileUrl().length() > 255) {
+				return Map.of("success", false, "message", "Profile URL must be 255 characters or fewer");
+			}
+			user.setProfileUrl(changes.getProfileUrl());
 		}
 
 		userRepository.save(user);

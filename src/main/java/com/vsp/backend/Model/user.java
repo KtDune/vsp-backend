@@ -34,6 +34,9 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "profile_url")
+    private String profileUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false)
     private Visibility visibility = Visibility.PUBLIC;
@@ -94,6 +97,14 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getProfileUrl() {
+        return profileUrl;
+    }
+
+    public void setProfileUrl(String profileUrl) {
+        this.profileUrl = profileUrl;
     }
 
     public String getPassword() {
