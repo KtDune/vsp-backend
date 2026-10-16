@@ -23,6 +23,9 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     @Query("SELECT v FROM Video v WHERE v.isActive = true AND v.visibility = :visibility AND v.userId IN (SELECT u.id FROM User u WHERE u.isActive = true AND u.visibility = :accountVisibility)")
     Slice<Video> findPublicFeed(@Param("visibility") Video.Visibility visibility, @Param("accountVisibility") User.Visibility accountVisibility, Pageable pageable);
 
+    @Query("SELECT v FROM Video v WHERE v.isActive = true AND v.visibility = :visibility AND LOWER(v.title) LIKE LOWER(CONCAT('%', :title, '%')) AND v.userId IN (SELECT u.id FROM User u WHERE u.isActive = true AND u.visibility = :accountVisibility)")
+    Slice<Video> searchPublicByTitle(@Param("visibility") Video.Visibility visibility, @Param("title") String title, @Param("accountVisibility") User.Visibility accountVisibility, Pageable pageable);
+
     @Modifying
     @Query("UPDATE Video v SET v.viewCount = v.viewCount + 1 WHERE v.id = :id")
     int incrementViewCount(@Param("id") Long id);

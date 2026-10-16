@@ -4,6 +4,8 @@ import com.vsp.backend.Dto.UserResponse;
 import com.vsp.backend.Model.User;
 import com.vsp.backend.Repository.UserRepository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -150,5 +152,16 @@ public class UserService {
 		}
 
 		return UserResponse.fullView(user);
+	}
+
+	public List<UserResponse> searchByName(String name) {
+		List<User> users = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(name.trim());
+
+		List<UserResponse> results = new ArrayList<>();
+		for (User user : users) {
+			results.add(UserResponse.fullView(user));
+		}
+
+		return results;
 	}
 }

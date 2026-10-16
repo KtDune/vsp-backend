@@ -30,33 +30,38 @@ public class VideoController {
     @GetMapping
     public ResponseEntity<?> listVideos(@RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long viewerId,
+            @RequestParam(required = false) String title,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int pageSize = Math.min(Math.max(size, 1), 100);
+
+        if (title != null && !title.isBlank()) {
+            return ResponseEntity.ok(Map.of("success", true, "videos", videoService.searchByTitle(title, page, pageSize)));
+        }
 
         if (userId != null) {
             Slice<Video> videos = videoService.getChannelVideos(userId, viewerId, page, pageSize);
 
             if (videos == null) {
-                return ResponseEntity.notFound().build();
+                return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found or deactivated"));
             }
 
-            return ResponseEntity.ok(videos);
+            return ResponseEntity.ok(Map.of("success", true, "videos", videos));
         }
 
-        return ResponseEntity.ok(videoService.getHomeFeed(page, pageSize));
+        return ResponseEntity.ok(Map.of("success", true, "videos", videoService.getHomeFeed(page, pageSize)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<VideoResponse> watchVideo(@PathVariable Long id,
+    public ResponseEntity<?> watchVideo(@PathVariable Long id,
             @RequestParam(required = false) Long viewerId) {
         VideoResponse v = videoService.getById(id, viewerId);
 
         if (v != null) {
-            return ResponseEntity.ok(v);
+            return ResponseEntity.ok(Map.of("success", true, "video", v));
         }
 
-        return ResponseEntity.notFound().build();
+        return ResponseEntity.status(404).body(Map.of("success", false, "message", "Video not found or private"));
     }
 
     @PostMapping

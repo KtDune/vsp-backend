@@ -100,6 +100,16 @@ public class VideoService {
 		return videoRepository.findPublicFeed(Video.Visibility.PUBLIC, User.Visibility.PUBLIC, pageable);
 	}
 
+	public Slice<Video> searchByTitle(String title, int page, int size) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+		if (title == null || title.isBlank()) {
+			return new SliceImpl<>(List.of(), pageable, false);
+		}
+
+		return videoRepository.searchPublicByTitle(Video.Visibility.PUBLIC, title.trim(), User.Visibility.PUBLIC, pageable);
+	}
+
 	public Slice<Video> getChannelVideos(Long userId, Long viewerId, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
