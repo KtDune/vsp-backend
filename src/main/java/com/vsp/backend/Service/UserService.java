@@ -19,10 +19,13 @@ public class UserService {
 
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder;
+	private final SubscriptionService subscriptionService;
 
-	public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
+	public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder,
+			SubscriptionService subscriptionService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.subscriptionService = subscriptionService;
 	}
 
 	private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{5,20}$");
@@ -102,7 +105,12 @@ public class UserService {
 		}
 
 		if (changes.getVisibility() != null) {
+			User.Visibility oldVisibility = user.getVisibility();
 			user.setVisibility(changes.getVisibility());
+			if (oldVisibility == User.Visibility.PRIVATE
+					&& changes.getVisibility() == User.Visibility.PUBLIC) {
+				subscriptionService.approveAll(user.getId());
+			}
 		}
 
 		if (changes.getProfileUrl() != null) {
@@ -139,13 +147,20 @@ public class UserService {
 	}
 
 	public UserResponse getById(Long id) {
-		Optional<User> result = userRepository.findByIdAndIsActiveTrue(id);
+		return toResponse(userRepository.findByIdAndIsActiveTrue(id).orElse(null));
+	}
 
-		if (result.isEmpty()) {
+	public UserResponse getByUsername(String username) {
+		if (username == null || username.isBlank()) {
 			return null;
 		}
+		return toResponse(userRepository.findFirstByUsernameIgnoreCaseAndIsActiveTrue(username.trim()).orElse(null));
+	}
 
-		User user = result.get();
+	private UserResponse toResponse(User user) {
+		if (user == null) {
+			return null;
+		}
 
 		if (user.getVisibility() == User.Visibility.PRIVATE) {
 			return UserResponse.publicView(user);

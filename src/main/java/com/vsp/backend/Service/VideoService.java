@@ -6,6 +6,9 @@ import com.vsp.backend.Model.Video;
 import com.vsp.backend.Repository.UserRepository;
 import com.vsp.backend.Repository.VideoRepository;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -79,55 +82,97 @@ public class VideoService {
 		Video video = result.get();
 		boolean isOwner = viewerId != null && viewerId.equals(video.getUserId());
 
-		if (!isOwner && video.getVisibility() == Video.Visibility.PRIVATE) {
+		Optional<User> owner = userRepository.findByIdAndIsActiveTrue(video.getUserId());
+		if (owner.isEmpty()) {
 			return null;
 		}
 
-		if (!isOwner) {
-			Optional<User> owner = userRepository.findByIdAndIsActiveTrue(video.getUserId());
-			if (owner.isEmpty() || owner.get().getVisibility() == User.Visibility.PRIVATE) {
-				return null;
-			}
+		if (!isOwner && (video.getVisibility() == Video.Visibility.PRIVATE
+				|| owner.get().getVisibility() == User.Visibility.PRIVATE)) {
+			return null;
 		}
 
 		videoRepository.incrementViewCount(id);
 		video.setViewCount(video.getViewCount() + 1);
-		return VideoResponse.fullView(video);
+		return VideoResponse.fullView(video, owner.get());
 	}
 
-	public Slice<Video> getHomeFeed(int page, int size) {
+	public Slice<VideoResponse> getHomeFeed(int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-		return videoRepository.findPublicFeed(Video.Visibility.PUBLIC, User.Visibility.PUBLIC, pageable);
+		return toCardSlice(videoRepository.findPublicFeed(Video.Visibility.PUBLIC, User.Visibility.PUBLIC, pageable));
 	}
 
-	public Slice<Video> searchByTitle(String title, int page, int size) {
+	public Slice<VideoResponse> searchByTitle(String title, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
 		if (title == null || title.isBlank()) {
 			return new SliceImpl<>(List.of(), pageable, false);
 		}
 
-		return videoRepository.searchPublicByTitle(Video.Visibility.PUBLIC, title.trim(), User.Visibility.PUBLIC, pageable);
+		return toCardSlice(
+				videoRepository.searchPublicByTitle(Video.Visibility.PUBLIC, title.trim(), User.Visibility.PUBLIC, pageable));
 	}
 
-	public Slice<Video> getChannelVideos(Long userId, Long viewerId, int page, int size) {
+	public Slice<VideoResponse> getChannelVideos(Long userId, Long viewerId, int page, int size) {
+		return channelVideos(userRepository.findByIdAndIsActiveTrue(userId), viewerId, page, size);
+	}
+
+	public Slice<VideoResponse> getChannelVideosByUsername(String username, Long viewerId, int page, int size) {
+		Optional<User> channel = username == null || username.isBlank() ? Optional.empty()
+				: userRepository.findFirstByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+		return channelVideos(channel, viewerId, page, size);
+	}
+
+	private Slice<VideoResponse> channelVideos(Optional<User> channel, Long viewerId, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-		Optional<User> channel = userRepository.findByIdAndIsActiveTrue(userId);
 		if (channel.isEmpty()) {
 			return null;
 		}
 
+		Long userId = channel.get().getId();
 		boolean isOwner = viewerId != null && viewerId.equals(userId);
 		if (!isOwner && channel.get().getVisibility() == User.Visibility.PRIVATE) {
 			return new SliceImpl<>(List.of(), pageable, false);
 		}
 
+		User owner = channel.get();
 		if (isOwner) {
-			return videoRepository.findByUserIdAndIsActiveTrue(userId, pageable);
+			return videoRepository.findByUserIdAndIsActiveTrue(userId, pageable).map(v -> VideoResponse.cardView(v, owner));
 		}
 
-		return videoRepository.findByUserIdAndIsActiveTrueAndVisibility(userId, Video.Visibility.PUBLIC, pageable);
+		return videoRepository.findByUserIdAndIsActiveTrueAndVisibility(userId, Video.Visibility.PUBLIC, pageable)
+				.map(v -> VideoResponse.cardView(v, owner));
+	}
+
+	private Slice<VideoResponse> toCardSlice(Slice<Video> slice) {
+		Map<Long, User> channels = loadChannels(slice.getContent());
+		List<VideoResponse> content = new ArrayList<>();
+		for (Video video : slice.getContent()) {
+			User channel = channels.get(video.getUserId());
+			if (channel == null) {
+				continue;
+			}
+			content.add(VideoResponse.cardView(video, channel));
+		}
+		return new SliceImpl<>(content, slice.getPageable(), slice.hasNext());
+	}
+
+	private Map<Long, User> loadChannels(List<Video> videos) {
+		Set<Long> ids = new LinkedHashSet<>();
+		for (Video video : videos) {
+			if (video.getUserId() != null) {
+				ids.add(video.getUserId());
+			}
+		}
+		if (ids.isEmpty()) {
+			return Map.of();
+		}
+		Map<Long, User> channels = new HashMap<>();
+		for (User user : userRepository.findAllById(ids)) {
+			channels.put(user.getId(), user);
+		}
+		return channels;
 	}
 
 	@Transactional

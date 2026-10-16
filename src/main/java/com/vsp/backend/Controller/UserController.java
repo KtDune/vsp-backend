@@ -55,6 +55,17 @@ public class UserController {
         return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
     }
 
+    @GetMapping("/by-username/{username}")
+    public ResponseEntity<?> getUserByUsername(@PathVariable String username) {
+        UserResponse u = userService.getByUsername(username);
+
+        if (u != null) {
+            return ResponseEntity.ok(Map.of("success", true, "user", u));
+        }
+
+        return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
+    }
+
     @PostMapping
     public ResponseEntity<Map<String, Object>> createUser(@RequestBody User user) {
         Map<String, Object> result = userService.create(user);

@@ -29,6 +29,7 @@ public class VideoController {
 
     @GetMapping
     public ResponseEntity<?> listVideos(@RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String username,
             @RequestParam(required = false) Long viewerId,
             @RequestParam(required = false) String title,
             @RequestParam(defaultValue = "0") int page,
@@ -39,8 +40,18 @@ public class VideoController {
             return ResponseEntity.ok(Map.of("success", true, "videos", videoService.searchByTitle(title, page, pageSize)));
         }
 
+        if (username != null && !username.isBlank()) {
+            Slice<VideoResponse> videos = videoService.getChannelVideosByUsername(username, viewerId, page, pageSize);
+
+            if (videos == null) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found or deactivated"));
+            }
+
+            return ResponseEntity.ok(Map.of("success", true, "videos", videos));
+        }
+
         if (userId != null) {
-            Slice<Video> videos = videoService.getChannelVideos(userId, viewerId, page, pageSize);
+            Slice<VideoResponse> videos = videoService.getChannelVideos(userId, viewerId, page, pageSize);
 
             if (videos == null) {
                 return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found or deactivated"));
