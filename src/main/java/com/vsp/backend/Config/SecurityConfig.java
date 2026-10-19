@@ -37,6 +37,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/v1/users/*/subscription-status").authenticated()
 						.requestMatchers(HttpMethod.GET, "/api/v1/users/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/v1/videos/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/v1/posts/**").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();
