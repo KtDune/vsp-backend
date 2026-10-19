@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.vsp.backend.Dto.UserResponse;
 import com.vsp.backend.Model.User;
+import com.vsp.backend.Security.AppUserPrincipal;
 import com.vsp.backend.Service.UserService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 import java.util.Map;
@@ -76,7 +78,13 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateUser(@PathVariable Long id, @RequestBody User changes) {
+    public ResponseEntity<Map<String, Object>> updateUser(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestBody User changes) {
+        if (me == null || !me.id().equals(id)) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Owner only"));
+        }
+
         Map<String, Object> result = userService.updateById(id, changes);
 
         return result.get("success").equals(true)
@@ -85,7 +93,13 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable Long id, @RequestBody(required = false) User request) {
+    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestBody(required = false) User request) {
+        if (me == null || !me.id().equals(id)) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Owner only"));
+        }
+
         if (userService.deactivateById(id, request)) {
             return ResponseEntity.ok(Map.of("success", true, "message", "User deactivated"));
         }

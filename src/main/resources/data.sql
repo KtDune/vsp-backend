@@ -113,8 +113,6 @@ CREATE TABLE likes (
 	FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Delete (not deactivate) does not trigger likes deactivation
-
 CREATE TABLE subscriptions (
 	id BIGINT PRIMARY KEY AUTO_INCREMENT,
 	subscriber_id BIGINT NOT NULL,

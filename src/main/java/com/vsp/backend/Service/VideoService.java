@@ -38,11 +38,11 @@ public class VideoService {
 	private static final int MAX_TITLE_LENGTH = 100;
 	private static final int MAX_DESCRIPTION_WORDS = 500;
 
-	public Map<String, Object> create(Video video) {
-		if (video.getUserId() == null) {
-			return Map.of("success", false, "message", "User is required");
+	public Map<String, Object> create(Video video, Long callerId) {
+		if (callerId == null) {
+			return Map.of("success", false, "message", "Authentication required");
 		}
-		if (userRepository.findByIdAndIsActiveTrue(video.getUserId()).isEmpty()) {
+		if (userRepository.findByIdAndIsActiveTrue(callerId).isEmpty()) {
 			return Map.of("success", false, "message", "User not found or deactivated");
 		}
 		if (!isValidTitle(video.getTitle())) {
@@ -56,6 +56,7 @@ public class VideoService {
 		}
 
 		video.setId(null);
+		video.setUserId(callerId);
 		if (video.getVisibility() == null) {
 			video.setVisibility(Video.Visibility.PUBLIC);
 		}
@@ -176,7 +177,7 @@ public class VideoService {
 	}
 
 	@Transactional
-	public Map<String, Object> updateById(Long id, Video changes) {
+	public Map<String, Object> updateById(Long id, Video changes, Long callerId) {
 		Optional<Video> result = videoRepository.findByIdAndIsActiveTrue(id);
 
 		if (result.isEmpty()) {
@@ -185,7 +186,7 @@ public class VideoService {
 
 		Video video = result.get();
 
-		if (changes.getUserId() == null || !changes.getUserId().equals(video.getUserId())) {
+		if (callerId == null || !callerId.equals(video.getUserId())) {
 			return Map.of("success", false, "message", "Owner only");
 		}
 

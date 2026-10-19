@@ -10,7 +10,6 @@ public record UserResponse(Long id, String username, String profileUrl, String v
     }
 
     public static UserResponse fullView(User user) {
-        return new UserResponse(user.getId(), user.getUsername(), user.getProfileUrl(), user.getVisibility().name(),
-                user.getCreatedAt());
+        return new UserResponse(user.getId(), user.getUsername(), user.getProfileUrl(), user.getVisibility().name(), user.getCreatedAt());
     }
 }

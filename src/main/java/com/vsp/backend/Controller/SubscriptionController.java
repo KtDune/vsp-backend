@@ -1,7 +1,11 @@
 package com.vsp.backend.Controller;
 
+import com.vsp.backend.Model.Subscription;
+import com.vsp.backend.Security.AppUserPrincipal;
+import com.vsp.backend.Service.SubscriptionService;
 import org.springframework.data.domain.Slice;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -9,10 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.vsp.backend.Model.Subscription;
-import com.vsp.backend.Model.User;
-import com.vsp.backend.Service.SubscriptionService;
 
 import java.util.Map;
 
@@ -28,8 +28,8 @@ public class SubscriptionController {
 
     @PostMapping("/users/{id}/subscribe")
     public ResponseEntity<Map<String, Object>> subscribe(@PathVariable Long id,
-            @RequestParam Long subscriberId) {
-        Map<String, Object> result = subscriptionService.subscribe(subscriberId, id);
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = subscriptionService.subscribe(me.id(), id);
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
@@ -38,8 +38,8 @@ public class SubscriptionController {
 
     @DeleteMapping("/users/{id}/subscribe")
     public ResponseEntity<Map<String, Object>> unsubscribe(@PathVariable Long id,
-            @RequestParam Long subscriberId) {
-        if (subscriptionService.unsubscribe(subscriberId, id)) {
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        if (subscriptionService.unsubscribe(me.id(), id)) {
             return ResponseEntity.ok(Map.of("success", true, "message", "Unsubscribed"));
         }
 
@@ -49,8 +49,13 @@ public class SubscriptionController {
 
     @GetMapping("/users/{id}/subscription-requests")
     public ResponseEntity<?> getChannelSubscriptionRequests(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (me == null || !me.id().equals(id)) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Owner only"));
+        }
+
         int pageSize = Math.min(Math.max(size, 1), 100);
 
         return ResponseEntity.ok(Map.of("success", true,
@@ -59,8 +64,8 @@ public class SubscriptionController {
 
     @PostMapping("/subscriptions/{id}/approve")
     public ResponseEntity<Map<String, Object>> approve(@PathVariable Long id,
-            @RequestParam Long requesterId) {
-        Map<String, Object> result = subscriptionService.approve(id, requesterId);
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = subscriptionService.approve(id, me.id());
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
@@ -69,8 +74,8 @@ public class SubscriptionController {
 
     @PostMapping("/subscriptions/{id}/reject")
     public ResponseEntity<Map<String, Object>> reject(@PathVariable Long id,
-            @RequestParam Long requesterId) {
-        Map<String, Object> result = subscriptionService.reject(id, requesterId);
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = subscriptionService.reject(id, me.id());
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
@@ -79,8 +84,8 @@ public class SubscriptionController {
 
     @DeleteMapping("/subscriptions/{id}")
     public ResponseEntity<Map<String, Object>> removeSubscriber(@PathVariable Long id,
-            @RequestParam Long requesterId) {
-        Map<String, Object> result = subscriptionService.removeSubscriber(id, requesterId);
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = subscriptionService.removeSubscriber(id, me.id());
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
@@ -88,11 +93,11 @@ public class SubscriptionController {
     }
 
     @GetMapping("/subscriptions/mine")
-    public ResponseEntity<?> getMySubscriptions(@RequestParam Long userId,
+    public ResponseEntity<?> getMySubscriptions(@AuthenticationPrincipal AppUserPrincipal me,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int pageSize = Math.min(Math.max(size, 1), 100);
-        Map<String, Object> result = subscriptionService.getMySubscriptions(userId, page, pageSize);
+        Map<String, Object> result = subscriptionService.getMySubscriptions(me.id(), page, pageSize);
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
@@ -101,10 +106,11 @@ public class SubscriptionController {
 
     @GetMapping("/users/{id}/subscribers")
     public ResponseEntity<?> getChannelSubscribers(@PathVariable Long id,
-            @RequestParam(required = false) Long viewerId,
+            @AuthenticationPrincipal AppUserPrincipal me,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int pageSize = Math.min(Math.max(size, 1), 100);
+        Long viewerId = me != null ? me.id() : null;
 
         Slice<Subscription> subscribers = subscriptionService.getChannelSubscribers(id, viewerId, page, pageSize);
 
@@ -116,7 +122,9 @@ public class SubscriptionController {
     }
 
     @GetMapping("/users/{id}/subscriber-count")
-    public ResponseEntity<?> getSubscriberCount(@PathVariable Long id, @RequestParam(required = false) Long viewerId) {
+    public ResponseEntity<?> getSubscriberCount(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Long viewerId = me != null ? me.id() : null;
         Map<String, Object> result = subscriptionService.getSubscriberCount(id, viewerId);
 
         return result.get("success").equals(true)
@@ -126,8 +134,8 @@ public class SubscriptionController {
 
     @GetMapping("/users/{id}/subscription-status")
     public ResponseEntity<?> getMySubscriptionStatus(@PathVariable Long id,
-            @RequestParam(required = false) Long viewerId) {
-        Map<String, Object> result = subscriptionService.getMySubscriptionStatus(id, viewerId);
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = subscriptionService.getMySubscriptionStatus(id, me.id());
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)
