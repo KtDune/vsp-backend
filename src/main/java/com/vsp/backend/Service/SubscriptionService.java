@@ -7,9 +7,13 @@ import com.vsp.backend.Repository.SubscriptionRepository;
 import com.vsp.backend.Repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -196,14 +200,38 @@ public class SubscriptionService {
 		}
 
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-		List<SubscriptionResponse> subscriptions = subscriptionRepository
-				.findBySubscriberIdAndStatusAndIsActiveTrue(userId, Subscription.Status.APPROVED, pageable)
-				.map(SubscriptionResponse::fullView).getContent();
-		List<SubscriptionResponse> pendingRequests = subscriptionRepository
-				.findBySubscriberIdAndStatusAndIsActiveTrue(userId, Subscription.Status.PENDING, pageable)
-				.map(SubscriptionResponse::fullView).getContent();
+		Slice<Subscription> subscriptions = subscriptionRepository
+				.findBySubscriberIdAndStatusAndIsActiveTrue(userId, Subscription.Status.APPROVED, pageable);
+		Slice<Subscription> pendingRequests = subscriptionRepository
+				.findBySubscriberIdAndStatusAndIsActiveTrue(userId, Subscription.Status.PENDING, pageable);
 
-		return Map.of("success", true, "subscriptions", subscriptions, "pendingRequests", pendingRequests);
+		Set<Long> channelIds = new HashSet<>();
+		for (Subscription subscription : subscriptions) {
+			channelIds.add(subscription.getChannelId());
+		}
+		for (Subscription subscription : pendingRequests) {
+			channelIds.add(subscription.getChannelId());
+		}
+
+		Map<Long, User> channelsById = new HashMap<>();
+		for (User channel : userRepository.findAllById(channelIds)) {
+			if (Boolean.TRUE.equals(channel.getIsActive())) {
+				channelsById.put(channel.getId(), channel);
+			}
+		}
+
+		List<SubscriptionResponse> subscriptionViews = new ArrayList<>();
+		for (Subscription subscription : subscriptions) {
+			subscriptionViews.add(
+					SubscriptionResponse.channelView(subscription, channelsById.get(subscription.getChannelId())));
+		}
+		List<SubscriptionResponse> pendingViews = new ArrayList<>();
+		for (Subscription subscription : pendingRequests) {
+			pendingViews.add(
+					SubscriptionResponse.channelView(subscription, channelsById.get(subscription.getChannelId())));
+		}
+
+		return Map.of("success", true, "subscriptions", subscriptionViews, "pendingRequests", pendingViews);
 	}
 
 	public Map<String, Object> getMySubscriptionStatus(Long channelId, Long viewerId) {
