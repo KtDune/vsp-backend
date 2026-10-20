@@ -1,0 +1,18 @@
+services:
+  vsp-mysql:
+    image: mysql:9
+    command: --log_bin_trust_function_creators=1
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: vsp
+      MYSQL_USER: vsp
+      MYSQL_PASSWORD: vsppassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/data.sql:ro
+
+volumes:
+  mysql-data:
+    name: vsp_mysql-data
