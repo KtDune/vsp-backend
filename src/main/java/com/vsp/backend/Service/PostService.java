@@ -2,10 +2,13 @@ package com.vsp.backend.Service;
 
 import com.vsp.backend.Dto.PostRequest;
 import com.vsp.backend.Dto.PostResponse;
+import com.vsp.backend.Model.Like;
 import com.vsp.backend.Model.Post;
 import com.vsp.backend.Model.PostImage;
 import com.vsp.backend.Model.Subscription;
 import com.vsp.backend.Model.User;
+import com.vsp.backend.Repository.CommentRepository;
+import com.vsp.backend.Repository.LikeRepository;
 import com.vsp.backend.Repository.PostImageRepository;
 import com.vsp.backend.Repository.PostRepository;
 import com.vsp.backend.Repository.SubscriptionRepository;
@@ -40,13 +43,18 @@ public class PostService {
 	private final PostRepository postRepository;
 	private final PostImageRepository postImageRepository;
 	private final SubscriptionRepository subscriptionRepository;
+	private final CommentRepository commentRepository;
+	private final LikeRepository likeRepository;
 
 	public PostService(UserRepository userRepository, PostRepository postRepository,
-			PostImageRepository postImageRepository, SubscriptionRepository subscriptionRepository) {
+			PostImageRepository postImageRepository, SubscriptionRepository subscriptionRepository,
+			CommentRepository commentRepository, LikeRepository likeRepository) {
 		this.userRepository = userRepository;
 		this.postRepository = postRepository;
 		this.postImageRepository = postImageRepository;
 		this.subscriptionRepository = subscriptionRepository;
+		this.commentRepository = commentRepository;
+		this.likeRepository = likeRepository;
 	}
 
 	@Transactional
@@ -253,6 +261,8 @@ public class PostService {
 		post.setIsActive(false);
 		postRepository.save(post);
 		postImageRepository.deactivateByPostId(id);
+		commentRepository.deactivateByPostId(id);
+		likeRepository.deactivateByTarget(Like.TargetType.POST, id);
 
 		return Map.of("success", true, "message", "Post deleted");
 	}

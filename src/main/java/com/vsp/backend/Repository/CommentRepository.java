@@ -32,4 +32,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
             + "UNION ALL SELECT d.id FROM comments d JOIN tree t ON d.parent_id = t.id"
             + ") SELECT id FROM tree) sub ON c.id = sub.id SET c.is_active = FALSE", nativeQuery = true)
     int deactivateSubtree(@Param("id") Long id);
+
+    @Modifying
+    @Query("UPDATE Comment c SET c.isActive = false WHERE c.videoId = :videoId AND c.isActive = true")
+    int deactivateByVideoId(@Param("videoId") Long videoId);
+
+    @Modifying
+    @Query("UPDATE Comment c SET c.isActive = false WHERE c.postId = :postId AND c.isActive = true")
+    int deactivateByPostId(@Param("postId") Long postId);
 }

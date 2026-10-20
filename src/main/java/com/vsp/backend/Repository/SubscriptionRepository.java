@@ -24,6 +24,9 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     long countByChannelIdAndStatusAndIsActiveTrue(Long channelId, Subscription.Status status);
 
+    boolean existsBySubscriberIdAndChannelIdAndStatusAndIsActiveTrue(Long subscriberId, Long channelId,
+            Subscription.Status status);
+
     @Modifying
     @Query("UPDATE Subscription s SET s.status = 'APPROVED', s.decidedAt = :now WHERE s.channelId = :userId AND s.status = 'PENDING' AND s.isActive = true")
     int approveAllPendingForChannel(@Param("userId") Long userId, @Param("now") LocalDateTime now);

@@ -2,6 +2,7 @@ package com.vsp.backend.Controller;
 
 import org.springframework.data.domain.Slice;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -94,6 +95,16 @@ public class VideoController {
             @AuthenticationPrincipal AppUserPrincipal me,
             @RequestBody Video changes) {
         Map<String, Object> result = videoService.updateById(id, changes, me.id());
+
+        return result.get("success").equals(true)
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.badRequest().body(result);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteVideo(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        Map<String, Object> result = videoService.deleteById(id, me.id());
 
         return result.get("success").equals(true)
                 ? ResponseEntity.ok(result)

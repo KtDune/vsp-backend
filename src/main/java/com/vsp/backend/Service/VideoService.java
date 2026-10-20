@@ -1,8 +1,13 @@
 package com.vsp.backend.Service;
 
 import com.vsp.backend.Dto.VideoResponse;
+import com.vsp.backend.Model.Like;
+import com.vsp.backend.Model.Subscription;
 import com.vsp.backend.Model.User;
 import com.vsp.backend.Model.Video;
+import com.vsp.backend.Repository.CommentRepository;
+import com.vsp.backend.Repository.LikeRepository;
+import com.vsp.backend.Repository.SubscriptionRepository;
 import com.vsp.backend.Repository.UserRepository;
 import com.vsp.backend.Repository.VideoRepository;
 
@@ -28,10 +33,18 @@ public class VideoService {
 
 	private final UserRepository userRepository;
 	private final VideoRepository videoRepository;
+	private final SubscriptionRepository subscriptionRepository;
+	private final CommentRepository commentRepository;
+	private final LikeRepository likeRepository;
 
-	public VideoService(UserRepository userRepository, VideoRepository videoRepository) {
+	public VideoService(UserRepository userRepository, VideoRepository videoRepository,
+			SubscriptionRepository subscriptionRepository, CommentRepository commentRepository,
+			LikeRepository likeRepository) {
 		this.userRepository = userRepository;
 		this.videoRepository = videoRepository;
+		this.subscriptionRepository = subscriptionRepository;
+		this.commentRepository = commentRepository;
+		this.likeRepository = likeRepository;
 	}
 
 	private static final Set<String> ALLOWED_EXTENSIONS = Set.of("mp4", "mov", "webm", "mkv");
@@ -88,8 +101,13 @@ public class VideoService {
 			return null;
 		}
 
-		if (!isOwner && (video.getVisibility() == Video.Visibility.PRIVATE
-				|| owner.get().getVisibility() == User.Visibility.PRIVATE)) {
+		if (!isOwner && video.getVisibility() == Video.Visibility.PRIVATE) {
+			return null;
+		}
+
+		if (!isOwner && owner.get().getVisibility() == User.Visibility.PRIVATE
+				&& !subscriptionRepository.existsBySubscriberIdAndChannelIdAndStatusAndIsActiveTrue(viewerId,
+						video.getUserId(), Subscription.Status.APPROVED)) {
 			return null;
 		}
 
@@ -216,6 +234,27 @@ public class VideoService {
 
 		videoRepository.save(video);
 		return Map.of("success", true, "message", "Video updated");
+	}
+
+	@Transactional
+	public Map<String, Object> deleteById(Long id, Long callerId) {
+		Optional<Video> result = videoRepository.findByIdAndIsActiveTrue(id);
+
+		if (result.isEmpty()) {
+			return Map.of("success", false, "message", "Video not found");
+		}
+
+		Video video = result.get();
+
+		if (callerId == null || !callerId.equals(video.getUserId())) {
+			return Map.of("success", false, "message", "Owner only");
+		}
+
+		video.setIsActive(false);
+		videoRepository.save(video);
+		commentRepository.deactivateByVideoId(id);
+		likeRepository.deactivateByTarget(Like.TargetType.VIDEO, id);
+		return Map.of("success", true, "message", "Video deleted");
 	}
 
 	private boolean isValidTitle(String title) {
