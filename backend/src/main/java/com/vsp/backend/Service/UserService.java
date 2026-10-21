@@ -181,11 +181,14 @@ public class UserService {
 		return UserResponse.fullView(user);
 	}
 
-	public List<UserResponse> searchByName(String name) {
+	public List<UserResponse> searchByName(String name, Long viewerId) {
 		List<User> users = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(name.trim());
 
 		List<UserResponse> results = new ArrayList<>();
 		for (User user : users) {
+			if (viewerId != null && viewerId.equals(user.getId())) {
+				continue;
+			}
 			results.add(UserResponse.fullView(user));
 		}
 

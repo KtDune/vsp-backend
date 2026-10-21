@@ -31,13 +31,14 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<?> searchUsers(@RequestParam(required = false) String name) {
+    public ResponseEntity<?> searchUsers(@RequestParam(required = false) String name,
+            @AuthenticationPrincipal AppUserPrincipal me) {
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("success", false, "message", "Query parameter 'name' is required"));
         }
 
-        List<UserResponse> results = userService.searchByName(name);
+        List<UserResponse> results = userService.searchByName(name, me != null ? me.id() : null);
 
         if (results.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));

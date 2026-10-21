@@ -12,11 +12,27 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/data.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-prootpassword", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
-  # S3-compatible storage server (speaks the same S3 API MinIO uses).
-  # MinIO retired its public Docker Hub images in 2025 (registry denies pulls),
-  # so we ship RustFS: a drop-in S3 server on the same ports
-  # (9000 API / 9001 console) and same bucket model.
+  vsp-backend:
+    build:
+      context: ./backend
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://vsp-mysql:3306/vsp
+      MINIO_ENDPOINT: http://vsp-storage:9000
+    depends_on:
+      vsp-mysql:
+        condition: service_healthy
+      vsp-storage:
+        condition: service_healthy
+    restart: unless-stopped
+
   vsp-storage:
     image: rustfs/rustfs:latest
     ports:
@@ -34,7 +50,6 @@ services:
       timeout: 5s
       retries: 12
 
-  # One-shot: create the public-read bucket (GET only, listing blocked).
   vsp-storage-setup:
     image: amazon/aws-cli:latest
     depends_on:
