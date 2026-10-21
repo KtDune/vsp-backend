@@ -20,12 +20,14 @@ public class UserService {
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder passwordEncoder;
 	private final SubscriptionService subscriptionService;
+	private final StorageService storageService;
 
 	public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder,
-			SubscriptionService subscriptionService) {
+			SubscriptionService subscriptionService, StorageService storageService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.subscriptionService = subscriptionService;
+		this.storageService = storageService;
 	}
 
 	private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{5,20}$");
@@ -117,7 +119,14 @@ public class UserService {
 			if (changes.getProfileUrl().length() > 255) {
 				return Map.of("success", false, "message", "Profile URL must be 255 characters or fewer");
 			}
+			if (!storageService.isOwnedMediaUrl(changes.getProfileUrl(), StorageService.MediaKind.AVATAR, id)) {
+				return Map.of("success", false, "message", "Profile URL is invalid or was not uploaded by you");
+			}
+			String oldProfileUrl = user.getProfileUrl();
 			user.setProfileUrl(changes.getProfileUrl());
+			if (oldProfileUrl != null && !oldProfileUrl.equals(changes.getProfileUrl())) {
+				storageService.deleteByUrl(oldProfileUrl);
+			}
 		}
 
 		userRepository.save(user);

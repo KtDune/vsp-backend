@@ -36,18 +36,20 @@ public class VideoService {
 	private final SubscriptionRepository subscriptionRepository;
 	private final CommentRepository commentRepository;
 	private final LikeRepository likeRepository;
+	private final StorageService storageService;
 
 	public VideoService(UserRepository userRepository, VideoRepository videoRepository,
 			SubscriptionRepository subscriptionRepository, CommentRepository commentRepository,
-			LikeRepository likeRepository) {
+			LikeRepository likeRepository, StorageService storageService) {
 		this.userRepository = userRepository;
 		this.videoRepository = videoRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.commentRepository = commentRepository;
 		this.likeRepository = likeRepository;
+		this.storageService = storageService;
 	}
 
-	private static final Set<String> ALLOWED_EXTENSIONS = Set.of("mp4", "mov", "webm", "mkv");
+	private static final Set<String> ALLOWED_EXTENSIONS = Set.of("mp4", "mov", "webm");
 	private static final int MAX_TITLE_LENGTH = 100;
 	private static final int MAX_DESCRIPTION_WORDS = 500;
 
@@ -65,7 +67,15 @@ public class VideoService {
 			return Map.of("success", false, "message", "Description must be empty or up to 500 words");
 		}
 		if (!hasAllowedExtension(video.getVideoUrl())) {
-			return Map.of("success", false, "message", "Video file is required (mp4, mov, webm, or mkv)");
+			return Map.of("success", false, "message", "Video file is required (mp4, mov, or webm)");
+		}
+		if (!storageService.isOwnedMediaUrl(video.getVideoUrl(), StorageService.MediaKind.VIDEO, callerId)) {
+			return Map.of("success", false, "message", "Video URL is invalid or was not uploaded by you");
+		}
+		if (video.getThumbnailUrl() != null
+				&& !storageService.isOwnedMediaUrl(video.getThumbnailUrl(), StorageService.MediaKind.IMAGE,
+						callerId)) {
+			return Map.of("success", false, "message", "Thumbnail URL is invalid or was not uploaded by you");
 		}
 
 		video.setId(null);
@@ -226,7 +236,15 @@ public class VideoService {
 			video.setVisibility(changes.getVisibility());
 		}
 		if (changes.getThumbnailUrl() != null) {
+			if (!storageService.isOwnedMediaUrl(changes.getThumbnailUrl(), StorageService.MediaKind.IMAGE,
+					callerId)) {
+				return Map.of("success", false, "message", "Thumbnail URL is invalid or was not uploaded by you");
+			}
+			String oldThumbnailUrl = video.getThumbnailUrl();
 			video.setThumbnailUrl(changes.getThumbnailUrl());
+			if (oldThumbnailUrl != null) {
+				storageService.deleteByUrl(oldThumbnailUrl);
+			}
 		}
 		if (changes.getCommentsDisabled() != null) {
 			video.setCommentsDisabled(changes.getCommentsDisabled());
@@ -254,6 +272,10 @@ public class VideoService {
 		videoRepository.save(video);
 		commentRepository.deactivateByVideoId(id);
 		likeRepository.deactivateByTarget(Like.TargetType.VIDEO, id);
+		storageService.deleteByUrl(video.getVideoUrl());
+		if (video.getThumbnailUrl() != null) {
+			storageService.deleteByUrl(video.getThumbnailUrl());
+		}
 		return Map.of("success", true, "message", "Video deleted");
 	}
 

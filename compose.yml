@@ -13,6 +13,48 @@ services:
       - mysql-data:/var/lib/mysql
       - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/data.sql:ro
 
+  # S3-compatible storage server (speaks the same S3 API MinIO uses).
+  # MinIO retired its public Docker Hub images in 2025 (registry denies pulls),
+  # so we ship RustFS: a drop-in S3 server on the same ports
+  # (9000 API / 9001 console) and same bucket model.
+  vsp-storage:
+    image: rustfs/rustfs:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: vspadmin
+      RUSTFS_SECRET_KEY: vspminioadmin
+      RUSTFS_VOLUMES: /data
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # One-shot: create the public-read bucket (GET only, listing blocked).
+  vsp-storage-setup:
+    image: amazon/aws-cli:latest
+    depends_on:
+      vsp-storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: vspadmin
+      AWS_SECRET_ACCESS_KEY: vspminioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_PAGER: ""
+    entrypoint: /bin/sh
+    command: >
+      -c "aws --endpoint-url http://vsp-storage:9000 s3api create-bucket --bucket vsp-media 2>/dev/null;
+      aws --endpoint-url http://vsp-storage:9000 s3api put-bucket-policy --bucket vsp-media
+      --policy '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::vsp-media/*\"]}]}';
+      aws --endpoint-url http://vsp-storage:9000 s3api head-bucket --bucket vsp-media"
+
 volumes:
   mysql-data:
     name: vsp_mysql-data
+  storage-data:
+    name: vsp_storage-data

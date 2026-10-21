@@ -45,16 +45,18 @@ public class PostService {
 	private final SubscriptionRepository subscriptionRepository;
 	private final CommentRepository commentRepository;
 	private final LikeRepository likeRepository;
+	private final StorageService storageService;
 
 	public PostService(UserRepository userRepository, PostRepository postRepository,
 			PostImageRepository postImageRepository, SubscriptionRepository subscriptionRepository,
-			CommentRepository commentRepository, LikeRepository likeRepository) {
+			CommentRepository commentRepository, LikeRepository likeRepository, StorageService storageService) {
 		this.userRepository = userRepository;
 		this.postRepository = postRepository;
 		this.postImageRepository = postImageRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.commentRepository = commentRepository;
 		this.likeRepository = likeRepository;
+		this.storageService = storageService;
 	}
 
 	@Transactional
@@ -77,6 +79,9 @@ public class PostService {
 		}
 		if (imageUrls.size() > MAX_IMAGES) {
 			return Map.of("success", false, "message", "A post can have at most " + MAX_IMAGES + " images");
+		}
+		if (!hasOwnedImages(imageUrls, callerId)) {
+			return Map.of("success", false, "message", "Image URLs are invalid or were not uploaded by you");
 		}
 		if (content == null && imageUrls.isEmpty()) {
 			return Map.of("success", false, "message", "At least one of text or image is required");
@@ -214,6 +219,9 @@ public class PostService {
 			if (newImages.size() > MAX_IMAGES) {
 				return Map.of("success", false, "message", "A post can have at most " + MAX_IMAGES + " images");
 			}
+			if (!hasOwnedImages(newImages, callerId)) {
+				return Map.of("success", false, "message", "Image URLs are invalid or were not uploaded by you");
+			}
 		}
 
 		String effectiveContent = contentProvided ? newContent : post.getContent();
@@ -235,8 +243,14 @@ public class PostService {
 		}
 		post.setVisibility(visibility);
 		if (imagesProvided) {
+			List<String> oldImages = loadImageUrlsForPost(post.getId());
 			postImageRepository.deactivateByPostId(post.getId());
 			saveImages(post.getId(), callerId, newImages);
+			for (String oldImageUrl : oldImages) {
+				if (!newImages.contains(oldImageUrl)) {
+					storageService.deleteByUrl(oldImageUrl);
+				}
+			}
 		}
 
 		post.setIsEdited(true);
@@ -260,9 +274,13 @@ public class PostService {
 
 		post.setIsActive(false);
 		postRepository.save(post);
+		List<String> imageUrls = loadImageUrlsForPost(id);
 		postImageRepository.deactivateByPostId(id);
 		commentRepository.deactivateByPostId(id);
 		likeRepository.deactivateByTarget(Like.TargetType.POST, id);
+		for (String imageUrl : imageUrls) {
+			storageService.deleteByUrl(imageUrl);
+		}
 
 		return Map.of("success", true, "message", "Post deleted");
 	}
@@ -338,6 +356,15 @@ public class PostService {
 			image.setIsActive(true);
 			postImageRepository.save(image);
 		}
+	}
+
+	private boolean hasOwnedImages(List<String> imageUrls, Long callerId) {
+		for (String imageUrl : imageUrls) {
+			if (!storageService.isOwnedMediaUrl(imageUrl, StorageService.MediaKind.IMAGE, callerId)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private String normalizeContent(String content) {
