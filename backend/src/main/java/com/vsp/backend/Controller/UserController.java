@@ -47,8 +47,9 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUser(@PathVariable Long id) {
-        UserResponse u = userService.getById(id);
+    public ResponseEntity<?> getUser(@PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        UserResponse u = userService.getById(id, me != null ? me.id() : null);
 
         if (u != null) {
         	return ResponseEntity.ok(Map.of("success", true, "user", u));
@@ -58,8 +59,9 @@ public class UserController {
     }
 
     @GetMapping("/by-username/{username}")
-    public ResponseEntity<?> getUserByUsername(@PathVariable String username) {
-        UserResponse u = userService.getByUsername(username);
+    public ResponseEntity<?> getUserByUsername(@PathVariable String username,
+            @AuthenticationPrincipal AppUserPrincipal me) {
+        UserResponse u = userService.getByUsername(username, me != null ? me.id() : null);
 
         if (u != null) {
             return ResponseEntity.ok(Map.of("success", true, "user", u));

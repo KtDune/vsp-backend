@@ -155,23 +155,26 @@ public class UserService {
 		return true;
 	}
 
-	public UserResponse getById(Long id) {
-		return toResponse(userRepository.findByIdAndIsActiveTrue(id).orElse(null));
+	public UserResponse getById(Long id, Long viewerId) {
+		return toResponse(userRepository.findByIdAndIsActiveTrue(id).orElse(null), viewerId);
 	}
 
-	public UserResponse getByUsername(String username) {
+	public UserResponse getByUsername(String username, Long viewerId) {
 		if (username == null || username.isBlank()) {
 			return null;
 		}
-		return toResponse(userRepository.findFirstByUsernameIgnoreCaseAndIsActiveTrue(username.trim()).orElse(null));
+		return toResponse(userRepository.findFirstByUsernameIgnoreCaseAndIsActiveTrue(username.trim()).orElse(null),
+				viewerId);
 	}
 
-	private UserResponse toResponse(User user) {
+	private UserResponse toResponse(User user, Long viewerId) {
 		if (user == null) {
 			return null;
 		}
 
-		if (user.getVisibility() == User.Visibility.PRIVATE) {
+		boolean isOwner = viewerId != null && viewerId.equals(user.getId());
+
+		if (!isOwner && user.getVisibility() == User.Visibility.PRIVATE) {
 			return UserResponse.publicView(user);
 		}
 

@@ -172,10 +172,28 @@ public class SubscriptionService {
 		return subscriptionRepository.approveAllPendingForChannel(channelId, LocalDateTime.now());
 	}
 
-	public Slice<Subscription> getChannelSubscriptionRequests(Long channelId, int page, int size) {
+	public List<SubscriptionResponse> getChannelSubscriptionRequests(Long channelId, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-		return subscriptionRepository.findByChannelIdAndStatusAndIsActiveTrue(channelId, Subscription.Status.PENDING,
-				pageable);
+		Slice<Subscription> requests = subscriptionRepository.findByChannelIdAndStatusAndIsActiveTrue(channelId,
+				Subscription.Status.PENDING, pageable);
+
+		Set<Long> subscriberIds = new HashSet<>();
+		for (Subscription request : requests) {
+			subscriberIds.add(request.getSubscriberId());
+		}
+
+		Map<Long, User> subscribersById = new HashMap<>();
+		for (User subscriber : userRepository.findAllById(subscriberIds)) {
+			if (Boolean.TRUE.equals(subscriber.getIsActive())) {
+				subscribersById.put(subscriber.getId(), subscriber);
+			}
+		}
+
+		List<SubscriptionResponse> views = new ArrayList<>();
+		for (Subscription request : requests) {
+			views.add(SubscriptionResponse.subscriberView(request, subscribersById.get(request.getSubscriberId())));
+		}
+		return views;
 	}
 
 	public Slice<Subscription> getChannelSubscribers(Long channelId, Long viewerId, int page, int size) {
