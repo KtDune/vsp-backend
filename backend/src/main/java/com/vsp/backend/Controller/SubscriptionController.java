@@ -1,6 +1,6 @@
 package com.vsp.backend.Controller;
 
-import com.vsp.backend.Model.Subscription;
+import com.vsp.backend.Dto.SubscriptionResponse;
 import com.vsp.backend.Security.AppUserPrincipal;
 import com.vsp.backend.Service.SubscriptionService;
 import org.springframework.data.domain.Slice;
@@ -112,7 +112,8 @@ public class SubscriptionController {
         int pageSize = Math.min(Math.max(size, 1), 100);
         Long viewerId = me != null ? me.id() : null;
 
-        Slice<Subscription> subscribers = subscriptionService.getChannelSubscribers(id, viewerId, page, pageSize);
+        Slice<SubscriptionResponse> subscribers = subscriptionService.getChannelSubscribers(id, viewerId, page,
+                pageSize);
 
         if (subscribers == null) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found or deactivated"));

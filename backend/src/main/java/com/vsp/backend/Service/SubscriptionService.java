@@ -196,7 +196,7 @@ public class SubscriptionService {
 		return views;
 	}
 
-	public Slice<Subscription> getChannelSubscribers(Long channelId, Long viewerId, int page, int size) {
+	public Slice<SubscriptionResponse> getChannelSubscribers(Long channelId, Long viewerId, int page, int size) {
 		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "decidedAt"));
 
 		Optional<User> channel = userRepository.findByIdAndIsActiveTrue(channelId);
@@ -209,7 +209,28 @@ public class SubscriptionService {
 			return new SliceImpl<>(List.of(), pageable, false);
 		}
 
-		return subscriptionRepository.findByChannelIdAndStatusAndIsActiveTrue(channelId, Subscription.Status.APPROVED, pageable);
+		Slice<Subscription> subscribers = subscriptionRepository
+				.findByChannelIdAndStatusAndIsActiveTrue(channelId, Subscription.Status.APPROVED, pageable);
+
+		Set<Long> subscriberIds = new HashSet<>();
+		for (Subscription subscription : subscribers) {
+			subscriberIds.add(subscription.getSubscriberId());
+		}
+
+		Map<Long, User> subscribersById = new HashMap<>();
+		for (User subscriber : userRepository.findAllById(subscriberIds)) {
+			if (Boolean.TRUE.equals(subscriber.getIsActive())) {
+				subscribersById.put(subscriber.getId(), subscriber);
+			}
+		}
+
+		List<SubscriptionResponse> subscriberViews = new ArrayList<>();
+		for (Subscription subscription : subscribers) {
+			subscriberViews.add(
+					SubscriptionResponse.subscriberView(subscription, subscribersById.get(subscription.getSubscriberId())));
+		}
+
+		return new SliceImpl<>(subscriberViews, pageable, subscribers.hasNext());
 	}
 
 	public Map<String, Object> getMySubscriptions(Long userId, int page, int size) {
