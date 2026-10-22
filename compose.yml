@@ -40,7 +40,7 @@ services:
       - "9001:9001"
     environment:
       RUSTFS_ACCESS_KEY: vspadmin
-      RUSTFS_SECRET_KEY: vspminioadmin
+      RUSTFS_SECRET_KEY: 614d12b96eb029298b2a56590c09735e0db957b3bbeac8180950d03a564fea25
       RUSTFS_VOLUMES: /data
     volumes:
       - storage-data:/data
@@ -57,7 +57,7 @@ services:
         condition: service_healthy
     environment:
       AWS_ACCESS_KEY_ID: vspadmin
-      AWS_SECRET_ACCESS_KEY: vspminioadmin
+      AWS_SECRET_ACCESS_KEY: 614d12b96eb029298b2a56590c09735e0db957b3bbeac8180950d03a564fea25
       AWS_DEFAULT_REGION: us-east-1
       AWS_EC2_METADATA_DISABLED: "true"
       AWS_PAGER: ""
